@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.database.database import get_db
 from app.models.mission import Mission
 from app.models.employe import Employe
+from app.core.deps import require_rh_or_admin
 
 router = APIRouter(prefix="/missions", tags=["Missions"])
 
@@ -28,7 +29,8 @@ def assigner_mission(
     region: str = Form(None),
     date_debut: date = Form(...),
     date_fin: date = Form(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
 ):
     employe = db.query(Employe).filter(Employe.id == employe_id).first()
 
@@ -70,12 +72,19 @@ def assigner_mission(
 
 
 @router.get("/")
-def get_missions(db: Session = Depends(get_db)):
+def get_missions(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
+):
     return db.query(Mission).all()
 
 
 @router.get("/{mission_id}")
-def get_mission(mission_id: int, db: Session = Depends(get_db)):
+def get_mission(
+    mission_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
+):
     mission = db.query(Mission).filter(Mission.id == mission_id).first()
 
     if not mission:
@@ -84,11 +93,60 @@ def get_mission(mission_id: int, db: Session = Depends(get_db)):
     return mission
 
 
+@router.put("/{mission_id}")
+def update_mission(
+    mission_id: int,
+    titre: str = Form(None),
+    description: str = Form(None),
+    mois_mission: str = Form(None),
+    intitule_projet: str = Form(None),
+    commune: str = Form(None),
+    district: str = Form(None),
+    region: str = Form(None),
+    date_debut: date = Form(None),
+    date_fin: date = Form(None),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
+):
+    mission = db.query(Mission).filter(Mission.id == mission_id).first()
+
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission introuvable")
+
+    if titre is not None:
+        mission.titre = titre
+    if description is not None:
+        mission.description = description
+    if mois_mission is not None:
+        mission.mois_mission = mois_mission
+    if intitule_projet is not None:
+        mission.intitule_projet = intitule_projet
+    if commune is not None:
+        mission.commune = commune
+    if district is not None:
+        mission.district = district
+    if region is not None:
+        mission.region = region
+    if date_debut is not None:
+        mission.date_debut = date_debut
+    if date_fin is not None:
+        mission.date_fin = date_fin
+
+    db.commit()
+    db.refresh(mission)
+
+    return {
+        "message": "Mission mise à jour avec succès",
+        "mission_id": mission.id
+    }
+
+
 @router.put("/{mission_id}/statut")
 def update_mission_statut(
     mission_id: int,
     statut: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
 ):
     mission = db.query(Mission).filter(Mission.id == mission_id).first()
 
@@ -109,4 +167,23 @@ def update_mission_statut(
         "message": "Statut mission mis à jour avec succès",
         "mission_id": mission.id,
         "nouveau_statut": mission.statut
+    }
+
+
+@router.delete("/{mission_id}")
+def delete_mission(
+    mission_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
+):
+    mission = db.query(Mission).filter(Mission.id == mission_id).first()
+
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission introuvable")
+
+    db.delete(mission)
+    db.commit()
+
+    return {
+        "message": "Mission supprimée avec succès"
     }

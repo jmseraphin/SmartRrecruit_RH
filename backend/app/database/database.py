@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
 
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int | None = None
+    SMTP_EMAIL: str | None = None
+    SMTP_PASSWORD: str | None = None
+
     class Config:
         env_file = ".env"
 

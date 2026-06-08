@@ -23,6 +23,9 @@ from app.models.evaluation import Evaluation
 from app.routes.evaluations import router as evaluations_router
 from app.models.attestation import Attestation
 from app.routes.attestations import router as attestations_router
+from app.routes.dashboard import router as dashboard_router
+from app.routes.soldes import router as soldes_router
+from app.routes.rapports import router as rapports_router
 
 app = FastAPI(
     title="SmartRecruit RH API"
@@ -42,6 +45,9 @@ app.include_router(missions_router)
 app.include_router(paiements_router)
 app.include_router(evaluations_router)
 app.include_router(attestations_router)
+app.include_router(dashboard_router)
+app.include_router(soldes_router)
+app.include_router(rapports_router)
 
 @app.get("/")
 def root():

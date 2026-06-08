@@ -2,13 +2,16 @@ import os
 from datetime import date
 
 import qrcode
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Form
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 
 from app.database.database import get_db
+from app.core.deps import require_rh_or_admin
+
 from app.models.attestation import Attestation
 from app.models.employe import Employe
 from app.models.candidat import Candidat
@@ -20,7 +23,7 @@ router = APIRouter(prefix="/attestations", tags=["Attestations"])
 
 ATTESTATION_DIR = "uploads/attestations"
 ASSETS_DIR = "uploads/assets"
-LOGO_PATH = "uploads/assets/logo.png"
+LOGO_PATH = "uploads/assets/logo.jpeg"
 
 
 def format_date_fr(value):
@@ -35,7 +38,7 @@ def format_date_fr(value):
     return f"{value.day} {mois[value.month - 1]} {value.year}"
 
 
-def draw_wrapped_text(c, text, x, y, max_width, line_height=14):
+def draw_wrapped_text(c, text, x, y, max_width, line_height=15):
     words = text.split()
     line = ""
 
@@ -74,17 +77,22 @@ def generate_attestation_pdf(
     candidat: Candidat,
     employe: Employe,
     offre: Offre,
-    mission: Mission | None,
-    evaluation: Evaluation | None
+    mois_mission: str,
+    intitule_travail: str,
+    commune: str,
+    district: str,
+    region: str
 ):
     c = canvas.Canvas(file_path, pagesize=A4)
     width, height = A4
 
+    # Bordures
     c.setLineWidth(2)
     c.rect(30, 30, width - 60, height - 60)
     c.setLineWidth(1)
     c.rect(38, 38, width - 76, height - 76)
 
+    # Header fixe
     c.setFont("Helvetica", 9)
     header_lines = [
         "Association SYNERGIE CONSULT",
@@ -101,6 +109,7 @@ def generate_attestation_pdf(
         c.drawString(65, y_header, line)
         y_header -= 13
 
+    # Logo réel
     if os.path.exists(LOGO_PATH):
         logo = ImageReader(LOGO_PATH)
         c.drawImage(
@@ -113,23 +122,15 @@ def generate_attestation_pdf(
             mask="auto"
         )
 
+    # Titre
     c.setFont("Helvetica-Bold", 16)
     c.drawCentredString(width / 2, height - 190, "ATTESTATION DE TRAVAIL")
 
+    # Infos depuis DB
     nom_complet = f"{candidat.prenom} {candidat.nom}".upper()
     date_naissance = format_date_fr(candidat.date_naissance)
     lieu_naissance = candidat.lieu_naissance or "Non précisé"
-
-    mois_mission = mission.mois_mission if mission and mission.mois_mission else "la période indiquée"
     poste = employe.poste
-    intitule_projet = (
-        mission.intitule_projet
-        if mission and mission.intitule_projet
-        else "pour la mise en œuvre des activités de Transfert Monétaire Non Conditionnel (TMNC)"
-    )
-    commune = mission.commune if mission and mission.commune else "Commune non précisée"
-    district = mission.district if mission and mission.district else offre.lieu
-    region = mission.region if mission and mission.region else "Région non précisée"
 
     qr_phrase = (
         f"{nom_complet} né le {date_naissance} à {lieu_naissance} "
@@ -139,7 +140,7 @@ def generate_attestation_pdf(
 
     texte = (
         f"Je Soussigné, RANDRIATAHIANA Charles, Président de l’Association SYNERGIE CONSULT, "
-        f"atteste par la présente {qr_phrase} {intitule_projet}, "
+        f"atteste par la présente {qr_phrase} {intitule_travail}, "
         f"{commune}, District d’{district}, Région {region}, "
         f"sous contrat FID et l’Association SYNERGIE CONSULT."
     )
@@ -158,20 +159,28 @@ def generate_attestation_pdf(
         15
     )
 
+    y -= 10
     c.setFont("Helvetica", 10)
-    c.drawString(width - 260, 190, f"Fait à Fianarantsoa, le {format_date_fr(date.today())}")
+    c.drawString(width - 260, y, f"Fait à Fianarantsoa, le {format_date_fr(date.today())}")
+
+    # 6 cm environ sous la fin du texte/date
+    block_y = y - 120
+
+    if block_y < 80:
+        block_y = 80
 
     os.makedirs(ASSETS_DIR, exist_ok=True)
+
     qr_path = os.path.join(ASSETS_DIR, f"qr_attestation_employe_{employe.id}.png")
     generate_qr_code(qr_phrase, qr_path)
 
     qr_img = ImageReader(qr_path)
-    c.drawImage(qr_img, 80, 105, width=60, height=60)
+    c.drawImage(qr_img, 80, block_y, width=70, height=70)
 
-    # Zone cachet/signature laissée volontairement vide
+    # Espace tampon/signature volontairement laissé vide
     c.setFont("Helvetica", 10)
-    c.drawString(width - 245, 95, "RANDRIATAHIANA Charles")
-    c.drawString(width - 245, 70, "Président de l’Association SYNERGIE CONSULT")
+    c.drawString(width - 245, block_y + 12, "RANDRIATAHIANA Charles")
+    c.drawString(width - 245, block_y - 8, "Président de l’Association Synergie Consult")
 
     c.save()
 
@@ -179,7 +188,13 @@ def generate_attestation_pdf(
 @router.post("/generer/{employe_id}")
 def generer_attestation(
     employe_id: int,
-    db: Session = Depends(get_db)
+    mois_mission: str = Form(...),
+    intitule_travail: str = Form(...),
+    commune: str = Form(...),
+    district: str = Form(...),
+    region: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
 ):
     employe = db.query(Employe).filter(Employe.id == employe_id).first()
 
@@ -188,14 +203,6 @@ def generer_attestation(
 
     candidat = db.query(Candidat).filter(Candidat.id == employe.candidat_id).first()
     offre = db.query(Offre).filter(Offre.id == employe.offre_id).first()
-
-    mission = db.query(Mission).filter(
-        Mission.employe_id == employe.id
-    ).order_by(Mission.id.desc()).first()
-
-    evaluation = db.query(Evaluation).filter(
-        Evaluation.employe_id == employe.id
-    ).order_by(Evaluation.id.desc()).first()
 
     if not candidat:
         raise HTTPException(status_code=404, detail="Candidat introuvable")
@@ -213,13 +220,16 @@ def generer_attestation(
         candidat=candidat,
         employe=employe,
         offre=offre,
-        mission=mission,
-        evaluation=evaluation
+        mois_mission=mois_mission,
+        intitule_travail=intitule_travail,
+        commune=commune,
+        district=district,
+        region=region
     )
 
     attestation = Attestation(
         employe_id=employe.id,
-        mission_id=mission.id if mission else None,
+        mission_id=None,
         fichier_path=file_path,
         statut="GENEREE"
     )
@@ -232,19 +242,48 @@ def generer_attestation(
         "message": "Attestation générée avec succès",
         "attestation_id": attestation.id,
         "employe_id": employe.id,
-        "mission_id": attestation.mission_id,
         "fichier_path": attestation.fichier_path,
         "statut": attestation.statut
     }
 
 
 @router.get("/")
-def get_attestations(db: Session = Depends(get_db)):
+def get_attestations(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
+):
     return db.query(Attestation).all()
 
 
+@router.get("/{attestation_id}/download")
+def download_attestation(
+    attestation_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
+):
+    attestation = db.query(Attestation).filter(
+        Attestation.id == attestation_id
+    ).first()
+
+    if not attestation:
+        raise HTTPException(status_code=404, detail="Attestation introuvable")
+
+    if not os.path.exists(attestation.fichier_path):
+        raise HTTPException(status_code=404, detail="Fichier PDF introuvable")
+
+    return FileResponse(
+        path=attestation.fichier_path,
+        filename=os.path.basename(attestation.fichier_path),
+        media_type="application/pdf"
+    )
+
+
 @router.get("/{attestation_id}")
-def get_attestation(attestation_id: int, db: Session = Depends(get_db)):
+def get_attestation(
+    attestation_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
+):
     attestation = db.query(Attestation).filter(
         Attestation.id == attestation_id
     ).first()

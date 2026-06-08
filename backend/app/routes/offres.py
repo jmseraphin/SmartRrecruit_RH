@@ -1,11 +1,10 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 
-from app.database.database import settings, get_db
+from app.database.database import get_db
+from app.core.deps import require_rh_or_admin
 from app.models.offre import Offre
 from app.schemas.offre import OffreCreate, OffreUpdate, OffreResponse
 
@@ -14,51 +13,6 @@ router = APIRouter(
     prefix="/offres",
     tags=["Offres"]
 )
-
-security = HTTPBearer()
-
-
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-):
-    token = credentials.credentials
-
-    try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
-        )
-
-        email = payload.get("sub")
-        role = payload.get("role")
-
-        if email is None or role is None:
-            raise HTTPException(
-                status_code=401,
-                detail="Token invalide"
-            )
-
-        return {
-            "email": email,
-            "role": role
-        }
-
-    except JWTError:
-        raise HTTPException(
-            status_code=401,
-            detail="Token invalide"
-        )
-
-
-def admin_required(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "ADMIN":
-        raise HTTPException(
-            status_code=403,
-            detail="Acces refuse: ADMIN uniquement"
-        )
-
-    return current_user
 
 
 def calculer_statut_offre(offre: Offre):
@@ -91,7 +45,7 @@ def mettre_a_jour_statut(offre: Offre, db: Session):
 def create_offre(
     offre_data: OffreCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(admin_required)
+    current_user: dict = Depends(require_rh_or_admin)
 ):
     if offre_data.date_fin_reception < offre_data.date_debut_reception:
         raise HTTPException(
@@ -169,7 +123,7 @@ def update_offre(
     offre_id: int,
     offre_data: OffreUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(admin_required)
+    current_user: dict = Depends(require_rh_or_admin)
 ):
     offre = db.query(Offre).filter(Offre.id == offre_id).first()
 
@@ -227,7 +181,7 @@ def update_offre(
 def annuler_offre(
     offre_id: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(admin_required)
+    current_user: dict = Depends(require_rh_or_admin)
 ):
     offre = db.query(Offre).filter(Offre.id == offre_id).first()
 

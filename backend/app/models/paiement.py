@@ -18,5 +18,7 @@ class Paiement(Base):
     statut = Column(String(50), default="EN_ATTENTE")
     date_paiement = Column(Date, nullable=True)
 
+    recu_path = Column(String(255), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

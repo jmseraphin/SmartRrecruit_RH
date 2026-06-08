@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
+from app.core.deps import require_rh_or_admin
+
 from app.models.employe import Employe
 from app.models.candidature import Candidature
 from app.models.offre import Offre
@@ -18,7 +20,8 @@ router = APIRouter(
 def integrer_candidat(
     candidature_id: int,
     date_embauche: date = Form(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
 ):
     candidature = db.query(Candidature).filter(
         Candidature.id == candidature_id
@@ -43,10 +46,15 @@ def integrer_candidat(
             detail="Ce candidat est déjà intégré comme employé"
         )
 
-    offre = db.query(Offre).filter(Offre.id == candidature.offre_id).first()
+    offre = db.query(Offre).filter(
+        Offre.id == candidature.offre_id
+    ).first()
 
     if not offre:
-        raise HTTPException(status_code=404, detail="Offre associée introuvable")
+        raise HTTPException(
+            status_code=404,
+            detail="Offre associée introuvable"
+        )
 
     employe = Employe(
         candidat_id=candidature.candidat_id,
@@ -77,15 +85,27 @@ def integrer_candidat(
 
 
 @router.get("/")
-def get_employes(db: Session = Depends(get_db)):
+def get_employes(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
+):
     return db.query(Employe).all()
 
 
 @router.get("/{employe_id}")
-def get_employe(employe_id: int, db: Session = Depends(get_db)):
-    employe = db.query(Employe).filter(Employe.id == employe_id).first()
+def get_employe(
+    employe_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
+):
+    employe = db.query(Employe).filter(
+        Employe.id == employe_id
+    ).first()
 
     if not employe:
-        raise HTTPException(status_code=404, detail="Employé introuvable")
+        raise HTTPException(
+            status_code=404,
+            detail="Employé introuvable"
+        )
 
     return employe
