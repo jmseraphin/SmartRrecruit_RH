@@ -8,6 +8,7 @@ from app.models.candidat import Candidat
 from app.models.offre import Offre
 from app.models.candidature import Candidature
 from app.services.storage_service import save_file
+from app.services.analyse_dossier_service import calculate_score_from_dossier
 
 router = APIRouter(prefix="/candidatures", tags=["Candidatures"])
 
@@ -28,6 +29,28 @@ def calculate_score(offre: Offre, competences_candidat: str):
             score += 10
 
     return min(score, 100)
+
+
+def candidature_to_dict(candidature: Candidature, rang: int = None):
+    candidat = candidature.candidat
+    offre = candidature.offre
+
+    return {
+        "rang": rang,
+        "id": candidature.id,
+        "candidat_id": candidature.candidat_id,
+        "offre_id": candidature.offre_id,
+        "nom": candidat.nom if candidat else None,
+        "prenom": candidat.prenom if candidat else None,
+        "email": candidat.email if candidat else None,
+        "telephone": candidat.telephone if candidat else None,
+        "reference_offre": offre.reference if offre else None,
+        "titre_offre": offre.titre if offre else None,
+        "poste": offre.poste if offre else None,
+        "score": candidature.score,
+        "statut": candidature.statut,
+        "created_at": candidature.created_at
+    }
 
 
 @router.post("/apply")
@@ -78,8 +101,11 @@ def apply_to_offre(
         db.commit()
         db.refresh(candidat)
 
-    score = calculate_score(offre, competences)
-
+    score = calculate_score_from_dossier(
+        offre=offre,
+        dossier_path=saved_cv["path"],
+        competences_candidat=competences
+)
     candidature = Candidature(
         candidat_id=candidat.id,
         offre_id=offre.id,
@@ -99,14 +125,20 @@ def apply_to_offre(
         "offre_id": offre.id,
         "candidature_id": candidature.id,
         "score": score,
-        "statut": candidature.statut,
-        "cv_path": saved_cv["path"]
+        "statut": candidature.statut
     }
 
 
 @router.get("/")
 def get_candidatures(db: Session = Depends(get_db)):
-    return db.query(Candidature).order_by(Candidature.score.desc()).all()
+    candidatures = db.query(Candidature).order_by(
+        Candidature.score.desc()
+    ).all()
+
+    return [
+        candidature_to_dict(candidature, index + 1)
+        for index, candidature in enumerate(candidatures)
+    ]
 
 
 @router.get("/offre/{offre_id}")
@@ -116,9 +148,14 @@ def get_candidatures_by_offre(offre_id: int, db: Session = Depends(get_db)):
     if not offre:
         raise HTTPException(status_code=404, detail="Offre introuvable")
 
-    return db.query(Candidature).filter(
+    candidatures = db.query(Candidature).filter(
         Candidature.offre_id == offre_id
     ).order_by(Candidature.score.desc()).all()
+
+    return [
+        candidature_to_dict(candidature, index + 1)
+        for index, candidature in enumerate(candidatures)
+    ]
 
 
 @router.get("/offre/{offre_id}/ranking")
@@ -134,8 +171,12 @@ def ranking_candidatures_by_offre(offre_id: int, db: Session = Depends(get_db)):
 
     return {
         "offre_id": offre.id,
+        "reference": offre.reference,
         "offre": offre.titre,
-        "classement": candidatures
+        "classement": [
+            candidature_to_dict(candidature, index + 1)
+            for index, candidature in enumerate(candidatures)
+        ]
     }
 
 
@@ -208,4 +249,4 @@ def get_candidature(candidature_id: int, db: Session = Depends(get_db)):
     if not candidature:
         raise HTTPException(status_code=404, detail="Candidature introuvable")
 
-    return candidature
+    return candidature_to_dict(candidature)

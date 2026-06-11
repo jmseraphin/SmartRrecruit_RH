@@ -27,7 +27,7 @@ def get_current_user(
 
         return {
             "email": email,
-            "role": role
+            "role": role.upper()
         }
 
     except JWTError:
@@ -36,7 +36,9 @@ def get_current_user(
 
 def require_roles(roles: list[str]):
     def role_checker(current_user: dict = Depends(get_current_user)):
-        if current_user["role"] not in roles:
+        allowed_roles = [role.upper() for role in roles]
+
+        if current_user["role"] not in allowed_roles:
             raise HTTPException(
                 status_code=403,
                 detail="Accès refusé"

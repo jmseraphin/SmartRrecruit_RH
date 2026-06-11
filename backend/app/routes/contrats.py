@@ -14,6 +14,7 @@ from app.models.contrat import Contrat
 from app.models.employe import Employe
 from app.models.candidat import Candidat
 from app.models.offre import Offre
+from app.services.email_service import send_email_with_attachment
 
 router = APIRouter(
     prefix="/contrats",
@@ -210,6 +211,73 @@ def download_contrat(
         media_type="application/pdf"
     )
 
+@router.post("/{contrat_id}/send-email")
+def send_contrat_email(
+    contrat_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_rh_or_admin)
+):
+    contrat = db.query(Contrat).filter(
+        Contrat.id == contrat_id
+    ).first()
+
+    if not contrat:
+        raise HTTPException(
+            status_code=404,
+            detail="Contrat introuvable"
+        )
+
+    employe = db.query(Employe).filter(
+        Employe.id == contrat.employe_id
+    ).first()
+
+    if not employe:
+        raise HTTPException(
+            status_code=404,
+            detail="Employé introuvable"
+        )
+
+    candidat = db.query(Candidat).filter(
+        Candidat.id == employe.candidat_id
+    ).first()
+
+    if not candidat:
+        raise HTTPException(
+            status_code=404,
+            detail="Candidat introuvable"
+        )
+
+    file_path = f"uploads/contrats/contrat_employe_{contrat.employe_id}.pdf"
+
+    if not os.path.exists(file_path):
+        raise HTTPException(
+            status_code=404,
+            detail="Fichier contrat introuvable"
+        )
+
+    sent = send_email_with_attachment(
+        to_email=candidat.email,
+        subject="Votre contrat de travail",
+        body=(
+            f"Bonjour {candidat.prenom} {candidat.nom},\n\n"
+            f"Veuillez trouver ci-joint votre contrat de travail.\n\n"
+            f"Cordialement,\n"
+            f"Service RH"
+        ),
+        file_path=file_path
+    )
+
+    if not sent:
+        raise HTTPException(
+            status_code=500,
+            detail="Configuration SMTP manquante"
+        )
+
+    return {
+        "message": "Contrat envoyé avec succès",
+        "email": candidat.email,
+        "contrat_id": contrat.id
+    }
 
 @router.get("/{contrat_id}")
 def get_contrat(

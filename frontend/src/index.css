@@ -1,0 +1,48 @@
+@import "tailwindcss";
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+.dark section.bg-white,
+.dark div.bg-white,
+.dark form.bg-white,
+.dark table.bg-white {
+  background-color: #0f172a !important;
+  color: white !important;
+}
+
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: #e5e7eb !important;
+}
+
+.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.dark .bg-slate-100 {
+  background-color: #1e293b !important;
+}
+
+.dark .border-slate-200,
+.dark .border-slate-300 {
+  border-color: #334155 !important;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #020617 !important;
+  color: white !important;
+  border-color: #334155 !important;
+}
+
+.dark table thead tr {
+  background-color: #1e293b !important;
+  color: white !important;
+}
+
+.dark table tbody tr:hover {
+  background-color: #1e293b !important;
+}

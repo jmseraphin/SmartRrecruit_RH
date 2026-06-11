@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Float
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from app.database.database import Base
 
@@ -19,3 +20,13 @@ class Candidature(Base):
     score = Column(Float, default=0)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    candidat = relationship(
+        "Candidat",
+        lazy="joined"
+    )
+
+    offre = relationship(
+        "Offre",
+        lazy="joined"
+    )

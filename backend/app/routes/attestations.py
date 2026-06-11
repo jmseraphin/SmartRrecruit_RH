@@ -16,8 +16,6 @@ from app.models.attestation import Attestation
 from app.models.employe import Employe
 from app.models.candidat import Candidat
 from app.models.offre import Offre
-from app.models.mission import Mission
-from app.models.evaluation import Evaluation
 
 router = APIRouter(prefix="/attestations", tags=["Attestations"])
 
@@ -60,11 +58,7 @@ def draw_wrapped_text(c, text, x, y, max_width, line_height=15):
 
 
 def generate_qr_code(text: str, output_path: str):
-    qr = qrcode.QRCode(
-        version=1,
-        box_size=6,
-        border=2
-    )
+    qr = qrcode.QRCode(version=1, box_size=6, border=2)
     qr.add_data(text)
     qr.make(fit=True)
 
@@ -86,13 +80,11 @@ def generate_attestation_pdf(
     c = canvas.Canvas(file_path, pagesize=A4)
     width, height = A4
 
-    # Bordures
     c.setLineWidth(2)
     c.rect(30, 30, width - 60, height - 60)
     c.setLineWidth(1)
     c.rect(38, 38, width - 76, height - 76)
 
-    # Header fixe
     c.setFont("Helvetica", 9)
     header_lines = [
         "Association SYNERGIE CONSULT",
@@ -109,7 +101,6 @@ def generate_attestation_pdf(
         c.drawString(65, y_header, line)
         y_header -= 13
 
-    # Logo réel
     if os.path.exists(LOGO_PATH):
         logo = ImageReader(LOGO_PATH)
         c.drawImage(
@@ -122,11 +113,9 @@ def generate_attestation_pdf(
             mask="auto"
         )
 
-    # Titre
     c.setFont("Helvetica-Bold", 16)
     c.drawCentredString(width / 2, height - 190, "ATTESTATION DE TRAVAIL")
 
-    # Infos depuis DB
     nom_complet = f"{candidat.prenom} {candidat.nom}".upper()
     date_naissance = format_date_fr(candidat.date_naissance)
     lieu_naissance = candidat.lieu_naissance or "Non précisé"
@@ -160,10 +149,8 @@ def generate_attestation_pdf(
     )
 
     y -= 10
-    c.setFont("Helvetica", 10)
     c.drawString(width - 260, y, f"Fait à Fianarantsoa, le {format_date_fr(date.today())}")
 
-    # 6 cm environ sous la fin du texte/date
     block_y = y - 120
 
     if block_y < 80:
@@ -177,7 +164,6 @@ def generate_attestation_pdf(
     qr_img = ImageReader(qr_path)
     c.drawImage(qr_img, 80, block_y, width=70, height=70)
 
-    # Espace tampon/signature volontairement laissé vide
     c.setFont("Helvetica", 10)
     c.drawString(width - 245, block_y + 12, "RANDRIATAHIANA Charles")
     c.drawString(width - 245, block_y - 8, "Président de l’Association Synergie Consult")
@@ -188,6 +174,7 @@ def generate_attestation_pdf(
 @router.post("/generer/{employe_id}")
 def generer_attestation(
     employe_id: int,
+    mission_id: int = Form(None),
     mois_mission: str = Form(...),
     intitule_travail: str = Form(...),
     commune: str = Form(...),
@@ -229,7 +216,7 @@ def generer_attestation(
 
     attestation = Attestation(
         employe_id=employe.id,
-        mission_id=None,
+        mission_id=mission_id,
         fichier_path=file_path,
         statut="GENEREE"
     )
@@ -242,6 +229,7 @@ def generer_attestation(
         "message": "Attestation générée avec succès",
         "attestation_id": attestation.id,
         "employe_id": employe.id,
+        "mission_id": attestation.mission_id,
         "fichier_path": attestation.fichier_path,
         "statut": attestation.statut
     }

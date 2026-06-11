@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from app.database.database import Base
 
@@ -20,3 +21,7 @@ class Employe(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    candidat = relationship("Candidat", lazy="joined")
+    candidature = relationship("Candidature", lazy="joined")
+    offre = relationship("Offre", lazy="joined")
