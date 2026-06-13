@@ -24,9 +24,9 @@ function Sidebar() {
     <aside
       className={`${
         collapsed ? "w-20" : "w-56"
-      } bg-white border-r border-slate-200 h-screen shadow-sm transition-all duration-300 flex flex-col`}
+      } bg-gradient-to-b from-[#061a3a] to-[#0b2a66] border-r border-white/10 h-screen shadow-lg transition-all duration-300 flex flex-col`}
     >
-      <div className="px-3 py-4 border-b border-slate-200">
+      <div className="px-3 py-4 border-b border-white/10">
         <div
           className={`flex items-center ${
             collapsed ? "justify-center" : "justify-between"
@@ -45,10 +45,10 @@ function Sidebar() {
 
             {!collapsed && (
               <div>
-                <h1 className="text-base font-bold text-[#081f5c] leading-tight">
+                <h1 className="text-base font-bold text-white leading-tight">
                   SmartRecruit
                 </h1>
-                <p className="text-[11px] font-semibold text-slate-500">
+                <p className="text-[11px] font-semibold text-white/70 leading-tight">
                   Gestion RH intelligente
                 </p>
               </div>
@@ -58,7 +58,7 @@ function Sidebar() {
           {!collapsed && (
             <button
               onClick={() => setCollapsed(true)}
-              className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-600 text-lg"
+              className="w-8 h-8 rounded-lg hover:bg-white/10 text-white text-lg"
               title="Réduire le menu"
             >
               ☰
@@ -69,7 +69,7 @@ function Sidebar() {
         {collapsed && (
           <button
             onClick={() => setCollapsed(false)}
-            className="mt-3 w-full h-8 rounded-lg hover:bg-slate-100 text-slate-600 text-lg"
+            className="mt-3 w-full h-8 rounded-lg hover:bg-white/10 text-white text-lg"
             title="Afficher le menu"
           >
             ☰
@@ -79,7 +79,7 @@ function Sidebar() {
 
       {!collapsed && (
         <div className="px-3 pt-4 pb-2 text-center">
-          <p className="text-[11px] font-extrabold text-[#081f5c] uppercase tracking-wider">
+          <p className="text-[11px] font-extrabold text-white/80 uppercase tracking-wider">
             Menu principal
           </p>
         </div>
@@ -94,10 +94,10 @@ function Sidebar() {
             className={({ isActive }) =>
               `flex items-center ${
                 collapsed ? "justify-center px-2" : "gap-3 px-3"
-              } py-2.5 rounded-lg text-[13px] font-medium transition-all ${
+              } py-2 rounded-lg text-[13px] font-medium transition-all ${
                 isActive
-                  ? "bg-[#081f5c] text-white shadow-sm"
-                  : "text-slate-700 hover:bg-slate-100 hover:text-[#081f5c]"
+                  ? "bg-white/15 text-white shadow-sm"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
               }`
             }
           >
